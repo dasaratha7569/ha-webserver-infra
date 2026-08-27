@@ -32,7 +32,33 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 dir('terraform') {
-                    sh 'terraform plan -out=tfplan'
+                    script {
+                        CHANGES = sh(
+                            script: 'bash check_tf_replacements.sh',
+                            returnStdout: true
+                        ).trim()
+
+                        echo CHANGES
+                    }
+                }
+            }
+        }
+
+        stage('Approval') {
+            when {
+                expression {
+                    return CHANGES?.trim()
+                }
+            }
+            steps {
+                script {
+                    input(
+                        message: """Terraform detected destructive changes:
+
+${CHANGES}
+
+Do you want to continue?"""
+                    )
                 }
             }
         }
@@ -40,7 +66,7 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('terraform') {
-                    sh 'terraform apply -auto-approve tfplan'
+                    sh 'terraform apply -auto-approve'
                 }
             }
         }
